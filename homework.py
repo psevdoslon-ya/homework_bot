@@ -8,6 +8,7 @@ import exceptions
 
 from dotenv import load_dotenv
 from http import HTTPStatus
+from telegram import TelegramError
 
 load_dotenv()
 
@@ -28,12 +29,15 @@ HOMEWORK_STATUSES = {
 }
 
 
+logger = logging.getLogger(__name__)
+
+
 def send_message(bot, message):
     """Отправка сообщения в Telegram."""
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
-    except exceptions.SendMessageFailure:
-        raise exceptions.SendMessageFailure('Ошибка при отправке сообщения!')
+    except TelegramError:
+        raise TelegramError('Ошибка при отправке сообщения!')
 
 
 def get_api_answer(current_timestamp):
@@ -45,8 +49,8 @@ def get_api_answer(current_timestamp):
         if response.status_code != HTTPStatus.OK:
             raise exceptions.HttpStatusOkError('Api недоступен')
         return response.json()
-    except exceptions.GetApiStatusError as error:
-        raise exceptions.GetApiStatusError(
+    except requests.exceptions.RequestException as error:
+        raise requests.exceptions.RequestException(
             f'Ошибка при запросе к основному API: {error}'
         )
 
@@ -78,10 +82,10 @@ def check_tokens():
 
 def main():
     """Основная логика работы бота."""
-    logging.debug('Бот запущен')
+    logger.debug('Бот запущен')
     if not check_tokens():
         message = 'Отсутствуют обязательные переменные окружения!'
-        logging.critical(message)
+        logger.critical(message)
         sys.exit()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     while True:
@@ -93,6 +97,7 @@ def main():
             send_message(bot, message)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
+            logger.error(message)
             send_message(bot, message)
         time.sleep(RETRY_TIME)
 
